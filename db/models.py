@@ -1,5 +1,8 @@
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
-
+from django.db.models import UniqueConstraint
+from django.utils import timezone
 
 class Genre(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -21,6 +24,11 @@ class Movie(models.Model):
     description = models.TextField()
     actors = models.ManyToManyField(to=Actor, related_name="movies")
     genres = models.ManyToManyField(to=Genre, related_name="movies")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["title"]),
+        ]
 
     def __str__(self) -> str:
         return self.title
@@ -50,3 +58,55 @@ class MovieSession(models.Model):
 
     def __str__(self) -> str:
         return f"{self.movie.title} {str(self.show_time)}"
+
+
+class User(AbstractUser):
+    first_name = models.CharField(max_length=155, null=True, blank=True)
+    last_name = models.CharField(max_length=155, null=True, blank=True)
+    email = models.EmailField(max_length=155, null=True, blank=True)
+    username = models.CharField(unique=True,max_length=155, null=True, blank=True)
+
+
+class Order(models.Model):
+    created_at = models.DateTimeField(default=timezone.now)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.created_at.strftime('%Y-%m-%d %H:%M:%S')}"
+
+
+class Ticket(models.Model):
+    movie_session = models.ForeignKey(MovieSession, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    row = models.IntegerField()
+    seat = models.IntegerField()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["row", "seat", "movie_session"],
+                name="unique_row_seat_movie_session"
+            )
+        ]
+
+    def __str__(self):
+        movie_name = self.movie_session.movie.title
+        date_wit_time = self.movie_session.show_time.strftime("%Y-%m-%d %H:%M:%S")
+        return f"{movie_name} {date_wit_time} (row: {self.row}, seat: {self.seat})"
+
+    def clean(self):
+        movie_session_row = self.movie_session.cinema_hall.rows
+        movie_session_seat = self.movie_session.cinema_hall.seats_in_row
+
+        if self.row >movie_session_row:
+            raise ValidationError({"row": f"row number must be in available range: (1, rows): (1, {movie_session_row})"})
+
+        if self.seat > movie_session_seat:
+            raise ValidationError({"seat": f"seat number must be in available range: (1, seats_in_row): (1, {movie_session_seat})"})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
