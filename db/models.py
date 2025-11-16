@@ -2,7 +2,9 @@ from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import UniqueConstraint
-from django.utils import timezone
+from django.conf import settings
+
+
 
 class Genre(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -68,8 +70,8 @@ class User(AbstractUser):
 
 
 class Order(models.Model):
-    created_at = models.DateTimeField(default=timezone.now)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders")
 
     class Meta:
         ordering = ["-created_at"]
@@ -80,7 +82,7 @@ class Order(models.Model):
 
 class Ticket(models.Model):
     movie_session = models.ForeignKey(MovieSession, on_delete=models.CASCADE)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="tickets")
     row = models.IntegerField()
     seat = models.IntegerField()
 
@@ -94,9 +96,8 @@ class Ticket(models.Model):
 
     def __str__(self):
         movie_name = self.movie_session.movie.title
-        date_wit_time = self.movie_session.show_time.strftime("%Y-%m-%d %H:%M:%S")
-        return f"{movie_name} {date_wit_time} (row: {self.row}, seat: {self.seat})"
-
+        date_with_time = self.movie_session.show_time.strftime("%Y-%m-%d %H:%M:%S")
+        return f"{movie_name} {date_with_time} (row: {self.row}, seat: {self.seat})"
     def clean(self):
         movie_session_row = self.movie_session.cinema_hall.rows
         movie_session_seat = self.movie_session.cinema_hall.seats_in_row

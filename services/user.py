@@ -31,14 +31,17 @@ def update_user(user_id: int,
                 ) -> None:
     user = get_user(user_id)
 
-    for field in ["first_name", "last_name", "email"]:
-        if field not in user_data or user_data[field] is None:
-            user_data[field] = ""
-
     if password:
         user.set_password(password)
 
-    for field, value in user_data.items():
-        setattr(user, field, value)
+    allowed_fields = ["first_name", "last_name", "email", "username"]
+    for field in allowed_fields:
+        if field in user_data:
+            value = user_data[field]
+            setattr(user, field, "" if value is None else value)
 
+    for field in allowed_fields:
+        current_value = getattr(user, field)
+        if current_value is None:
+            setattr(user, field, "")
     user.save()
