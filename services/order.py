@@ -1,7 +1,9 @@
-import datetime
 from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
 from typing import Optional
+
+from django.db.models.functions import datetime
+
 from db.models import Order, Ticket, MovieSession
 from django.db import transaction
 
